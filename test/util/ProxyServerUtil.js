@@ -3,37 +3,34 @@
 *
 */
 
+let proxy = require('../../proxy.js');
 const util = require('../../lib/util.js');
+const path = require('path');
 
 const DEFAULT_OPTIONS = {
-  type: 'http',
-  port: 8001,
-  webInterface: {
-    enable: true,
+    type: "http",
+    port: 8001,
+    hostname: "localhost",
+    dbFile: null,  // optional, save request data to a specified file, will use in-memory db if not specified
     webPort: 8002,  // optional, port for web interface
-    wsPort: 8003,  // optional, internal port for web socket
-  },
-  throttle: 10000,    // optional, speed limit in kb/s
-  forceProxyHttps: true, // intercept https as well
-  dangerouslyIgnoreUnauthorized: true,
-  silent: false //optional, do not print anything into terminal. do not set it when you are still debugging.
+    socketPort: 8003,  // optional, internal port for web socket, replace this when it is conflict with your own service
+    throttle: 10000,    // optional, speed limit in kb/s
+    disableWebInterface: false, //optional, set it when you don't want to use the web interface
+    setAsGlobalProxy: false, //set anyproxy as your system proxy
+    interceptHttps: true, // intercept https as well
+    silent: false //optional, do not print anything into terminal. do not set it when you are still debugging.
 };
 
 /**
 *
 * @return An instance of proxy, could be closed by calling `instance.close()`
 */
-function defaultProxyServer() {
-  const AnyProxy = util.freshRequire('../proxy.js');
+function defaultProxyServer () {
+    proxy = util.freshRequire('../proxy.js');
 
-  const options = util.merge({}, DEFAULT_OPTIONS);
-  options.rule = util.freshRequire('./rule_default.js');
-  const instance = new AnyProxy.ProxyServer(options);
-  instance.on('error', (e) => {
-    console.log('server instance error', e);
-  });
-  instance.start();
-  return instance;
+    const options = util.merge({}, DEFAULT_OPTIONS);
+    options.rule = util.freshRequire('./rule_default.js');
+    return new proxy.proxyServer(options);
 }
 
 /*
@@ -42,40 +39,39 @@ function defaultProxyServer() {
     Object, the rule object which contains required intercept method
   @return An instance of proxy, could be closed by calling `instance.close()`
 */
-function proxyServerWithRule(rule, overrideConfig) {
-  const AnyProxy = util.freshRequire('../proxy.js');
+function proxyServerWithRule (rule) {
+    proxy = util.freshRequire('../proxy.js');
 
-  const options = Object.assign({}, DEFAULT_OPTIONS, overrideConfig);
-  options.rule = rule;
+    const options = util.merge({}, DEFAULT_OPTIONS);
+    options.rule = rule;
 
-  const instance = new AnyProxy.ProxyServer(options);
-  instance.on('error', (e) => {
-    console.log('server instance error', e);
-  });
-  instance.start();
-    
-  return instance;
+    return new proxy.proxyServer(options);
 }
 
-function proxyServerWithoutHttpsIntercept(rule) {
-  const AnyProxy = util.freshRequire('../proxy.js');
+function proxyServerWithoutHttpsIntercept (rule) {
+    proxy = util.freshRequire('../proxy.js');
 
-  const options = util.merge({}, DEFAULT_OPTIONS);
-  if (rule) {
-    options.rule = rule;
-  }
-  options.forceProxyHttps = false;
+    const options = util.merge({}, DEFAULT_OPTIONS);
+    if (rule) {
+        options.rule = rule;
+    }
+    options.interceptHttps = false;
+    return new proxy.proxyServer(options);
+}
 
-  const instance = new AnyProxy.ProxyServer(options);
-  instance.on('error', (e) => {
-    console.log('server instance error', e);
-  });
-  instance.start();
-  return instance;
+function proxyServerWithProxyAuth () {
+    proxy = util.freshRequire('../proxy.js');
+
+    const options = util.merge({}, DEFAULT_OPTIONS);
+    options.auth = true;
+    options.authFile = path.resolve(process.cwd(), 'test/data/auth.db');
+
+    return new proxy.proxyServer(options);
 }
 
 module.exports = {
-  defaultProxyServer,
-  proxyServerWithoutHttpsIntercept,
-  proxyServerWithRule
+    defaultProxyServer,
+    proxyServerWithoutHttpsIntercept,
+    proxyServerWithRule,
+    proxyServerWithProxyAuth
 };
