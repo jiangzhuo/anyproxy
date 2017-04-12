@@ -9,6 +9,7 @@ tmp.txt
 ._*
 .DS_Store
 .git
+.idea
 .hg
 .lock-wscript
 .idea
